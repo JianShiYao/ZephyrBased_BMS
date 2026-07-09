@@ -1,0 +1,24 @@
+manifest:
+  version: "1.2"
+
+  remotes:
+    - name: zephyrproject
+      url-base: https://github.com/zephyrproject-rtos
+    - name: BMS-Repo     
+      url-base: https://github.com/JianShiYao/
+
+  projects:
+    - name: zephyr
+      remote: zephyrproject
+      revision: v4.4.0      # 已确认支持 Art-Pi2
+      import:
+        # 只拉取本项目需要的模块，避免拉取全部 HAL，加快 west update。
+        name-allowlist:
+          - cmsis
+          - cmsis_6
+          - hal_stm32
+          - segger_rtt      # RTT 日志后端（可选，按需保留）
+          - mcuboot         # secure boot 引导器（真机阶段评估固件签名/启动验签，见 docs/quality/ci-checklist.md P2 边界）
+
+  self:
+    path: ZephyrBased_BMS

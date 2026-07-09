@@ -1,0 +1,42 @@
+{
+  // 多根工作区:双击本文件打开即可。路径相对于本文件所在目录(ZephyrBased_BMS/)。
+  // 本文件随 git 仓库分发,团队据此获得统一的 IDE 配置与目录视图。
+  "folders": [
+    { "name": "BMS (app + manifest)", "path": "." },
+    { "name": "Zephyr", "path": "../zephyr" },
+    { "name": "Modules", "path": "../modules" },
+    { "name": "Bootloader (MCUboot)", "path": "../bootloader" }
+  ],
+
+  // 项目级统一设置(个人偏好如主题/字体不要写在这里,放各自的用户设置)
+  "settings": {
+    "editor.codeActionsOnSave": {
+      // 保存时自动修复 markdownlint 可修规则(MD060 需扩展引擎支持,见文档)
+      "source.fixAll.markdownlint": "always"
+    },
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true
+  },
+
+  // 团队推荐插件清单(打开工作区时 VS Code 提示安装)
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.cpptools-extension-pack",
+      "ms-vscode.makefile-tools",
+      "marus25.cortex-debug",
+      "mcu-debug.debug-tracker-vscode",
+      "mcu-debug.peripheral-viewer",
+      "mcu-debug.memory-view",
+      "mcu-debug.rtos-views",
+      "ms-vscode.vscode-serial-monitor",
+      "trond-snekvik.gnu-mapfiles",
+      "cppchecksolutionsab.cppcheck-official",
+      "editorconfig.editorconfig",
+      "davidanson.vscode-markdownlint",
+      "ms-python.python",
+      "github.vscode-github-actions",
+      "ms-azuretools.vscode-containers",
+      "eamodio.gitlens"
+    ]
+  }
+}
