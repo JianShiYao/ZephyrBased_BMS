@@ -2,7 +2,8 @@
   // 多根工作区:双击本文件打开即可。路径相对于本文件所在目录(ZephyrBased_BMS/)。
   // 本文件随 git 仓库分发,团队据此获得统一的 IDE 配置与目录视图。
   "folders": [
-    { "name": "BMS (app + manifest)", "path": "." },
+    { "name": "BMS (app)", "path": "." },
+    { "name": "Manifest (west.yml)", "path": "../bms-manifest" },
     { "name": "Zephyr", "path": "../zephyr" },
     { "name": "Modules", "path": "../modules" },
     { "name": "Bootloader (MCUboot)", "path": "../bootloader" }
