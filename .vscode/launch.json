@@ -1,0 +1,90 @@
+{
+  // ============================================================================
+  // VS Code 调试配置(launch.json)——ART-Pi2 (STM32H7R7L8) 在线调试
+  // ----------------------------------------------------------------------------
+  // 用 cortex-debug 扩展 + 板载 ST-Link 对 Zephyr 固件做在线烧录/调试。
+  // 提供两套后端:pyOCD(首选,已验证)与 ST-LINK GDB Server(备选,未验证)。
+  //
+  // 前提条件:
+  //   1. 已安装 VS Code 扩展 "marus25.cortex-debug"(以及可选的外设/RTT 查看器);
+  //   2. 已配 udev 规则,使 pyocd 免 sudo 访问 USB(否则 GDB server 起不来);
+  //   3. Zephyr SDK、pyOCD(.venv)、STM32CubeProgrammer 等路径与下方一致。
+  //
+  // 变量说明:${workspaceFolder} = 本 app 仓库根;其上一级(..)是 west 工作区根。
+  // ============================================================================
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // ---- 配置一:pyOCD 后端(首选,已端到端验证)-------------------------
+      // 调试面板下拉里显示的名字
+      "name": "Debug art_pi2 (pyOCD)",
+      // 调试器类型,由 cortex-debug 扩展提供(所有 ARM Cortex-M 在线调试都用它)
+      "type": "cortex-debug",
+      // launch = 由 VS Code 启动 GDB server 并烧录后开始调试(区别于 attach 附加到已运行会话)
+      "request": "launch",
+      // GDB 的工作目录设为 west 工作区根,使源码路径能正确解析
+      "cwd": "${workspaceFolder}/..",
+      // 待调试的固件 ELF(含符号表);由下方 preLaunchTask 构建产出
+      "executable": "${workspaceFolder}/../build/zephyr/zephyr.elf",
+      // GDB server 后端选 pyOCD
+      "servertype": "pyocd",
+      // pyOCD 可执行文件路径(装在工作区的 Python 虚拟环境 .venv 里)
+      "serverpath": "${workspaceFolder}/../.venv/bin/pyocd",
+      // 目标芯片型号,pyOCD 据此加载对应的 flash 算法与内存布局
+      "targetId": "stm32h7r7l8hxh",
+      // 用 Zephyr SDK 附带的 arm-zephyr-eabi-gdb(须与工具链匹配,勿用系统 gdb)
+      "gdbPath": "${userHome}/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+      // 烧录并复位后自动运行到 main() 才停下(跳过启动汇编,直达 C 入口)
+      "runToEntryPoint": "main",
+      // 调试前先跑的 VS Code 任务(定义在 tasks.json),即 west 编译,保证 ELF 最新
+      "preLaunchTask": "West Build (art_pi2)",
+      // 外设寄存器视图(mcu-debug.peripheral-viewer):用 CubeProgrammer 自带的 STM32H7R SVD,
+      // 调试时在 "Cortex Peripherals" 面板可展开 GPIO/RCC/USART 等寄存器。
+      "svdFile": "${userHome}/STMicroelectronics/STM32Cube/STM32CubeProgrammer/SVD/STM32H7R.svd",
+      // 运行态实时监视变量(不打断 CPU),适合观察 BMS 采样量;
+      // 依赖 GDB server 支持后台内存读取,pyOCD 若不刷新属正常,可回退到断点查看。
+      "liveWatch": { "enabled": true, "samplesPerSecond": 4 },
+      // 会话建立后追加的 GDB 命令。这里放不影响执行流的设置(勿放 reset/continue,
+      // 以免与 runToEntryPoint 冲突);pretty 打印便于查看 Zephyr 结构体。
+      "postLaunchCommands": ["set print pretty on"],
+      // SEGGER RTT 日志:address=auto 让 cortex-debug 从 elf 里自动定位 _SEGGER_RTT 控制块;
+      // 调试启动后会多出一个 "RTT:console" 终端,显示固件经 RTT backend 打的日志。
+      "rttConfig": {
+        "enabled": true,
+        "address": "auto",
+        // decoders:每个通道(port)一个解码器。port 0 按纯文本(console)解码,
+        // label 是该终端标签页显示的名字。
+        "decoders": [
+          { "port": 0, "type": "console", "label": "RTT:console" }
+        ]
+      }
+    },
+    {
+      // ---- 配置二:ST-LINK GDB Server 后端(经测试:本芯片不可用,保留作记录)----
+      // 备选后端:ST 官方 ST-LINK GDB Server(随 STM32CubeCLT 1.22.0 安装)。
+      // 结论(2026-07-10 实测):此后端对 ART-Pi2 的 STM32H7R7(device ID 0x485)不可用。
+      //   - ST-Link 固件已升级 V2J35M26 -> V2J47M34(不再提示需更新),问题依旧;
+      //   - 试过 under-reset(-k)、SWD、两份 CubeProgrammer 2.23.0 作 -cp,均报
+      //     "Unknown MCU found on target"——ST-LINK_gdbserver v7.14.0 自身器件库
+      //     尚未收录 0x485(CubeProgrammer/pyOCD 均能识别,故非固件/接线问题)。
+      //   - 待 ST 后续版本支持该芯片再重试;当前请用上面的 pyOCD 配置调试。
+      "name": "Debug art_pi2 (ST-LINK GDB Server)",
+      "type": "cortex-debug",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/..",
+      "executable": "${workspaceFolder}/../build/zephyr/zephyr.elf",
+      // GDB server 后端选 ST 官方 stlink
+      "servertype": "stlink",
+      // CubeCLT 里的 ST-LINK GDB server 与 arm gdb;CubeProgrammer 目录供其加载 flash loader
+      "serverpath": "${userHome}/st/stm32cubeclt_1.22.0/STLink-gdb-server/bin/ST-LINK_gdbserver",
+      // ST-LINK GDB server 需要 CubeProgrammer 的 bin 目录来烧写 flash
+      "stm32cubeprogrammer": "${userHome}/st/stm32cubeclt_1.22.0/STM32CubeProgrammer/bin",
+      "gdbPath": "${userHome}/zephyr-sdk-1.0.1/gnu/arm-zephyr-eabi/bin/arm-zephyr-eabi-gdb",
+      // 调试物理接口用 SWD(两线,ART-Pi2 板载 ST-Link 走 SWD)
+      "interface": "swd",
+      "runToEntryPoint": "main",
+      "preLaunchTask": "West Build (art_pi2)",
+      "svdFile": "${userHome}/STMicroelectronics/STM32Cube/STM32CubeProgrammer/SVD/STM32H7R.svd"
+    }
+  ]
+}

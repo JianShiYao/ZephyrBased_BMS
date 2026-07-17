@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# pre-commit 门禁:对本次提交「暂存(staged)」的文件运行本地质量检查。
+#   - Markdown(*.md)      → markdownlint-cli2
+#   - C 源码(*.c / *.h)   → clang-format(风格) + checkpatch.pl(常见缺陷)
+#                          + cppcheck(静态分析) + MISRA C:2012(cppcheck misra addon)
+#
+# 安装(每个克隆一次性,core.hooksPath 属本地配置、不随仓库分发):
+#   git config core.hooksPath .githooks
+#
+# 设计取舍:
+#   - 只检查暂存区「新增/修改/重命名」的文件(--diff-filter=ACMR),删除的不查;
+#   - C 文件按「整文件」检查:项目代码基线干净,整文件比 diff 简单稳健,且无需依赖
+#     clang-format-diff.py 那条软链(见 doc/development/构建指南.md §2.1 的痛点);
+#   - 工具缺失(未找到 clang-format / checkpatch.pl)→ 打印告警并「跳过该项」,不挡提交;
+#     只有「检查真正失败」才以非零退出阻断提交;
+#   - 局限:校验的是工作区磁盘文件,若某文件同时有未暂存改动,查到的是二者混合后的内容。
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+fail=0
+
+# 收集暂存文件(NUL 分隔,兼容空格/特殊字符文件名)
+collect() { git diff --cached --name-only --diff-filter=ACMR -z -- "$@"; }
+mapfile -d '' -t md_files < <(collect '*.md')
+mapfile -d '' -t c_files  < <(collect '*.c' '*.h')
+
+# ---------- 1. Markdown:markdownlint(复用仓库根 .markdownlint.json)----------
+if [ ${#md_files[@]} -gt 0 ]; then
+  echo "pre-commit: markdownlint 校验 ${#md_files[@]} 个 Markdown 文件…"
+  if ! npx --yes markdownlint-cli2 "${md_files[@]}"; then
+    echo "pre-commit: Markdown 校验未通过,修正后重新 git add。" >&2
+    fail=1
+  fi
+fi
+
+# ---------- 2. C 源码:clang-format + checkpatch + cppcheck/MISRA ----------
+if [ ${#c_files[@]} -gt 0 ]; then
+  # 2a. clang-format 风格检查(--dry-run --Werror:不改文件,不合规即非零退出)
+  if command -v clang-format >/dev/null 2>&1; then
+    echo "pre-commit: clang-format 校验 ${#c_files[@]} 个 C 文件…"
+    if ! clang-format --dry-run --Werror "${c_files[@]}"; then
+      echo "pre-commit: 代码风格不符,运行 'clang-format -i <file>' 自动修复后重新 git add。" >&2
+      fail=1
+    fi
+  else
+    echo "pre-commit: [跳过] 未找到 clang-format,不做风格检查。" >&2
+  fi
+
+  # 2b. checkpatch 常见缺陷检查(本体来自 zephyr,规则用仓库根 .checkpatch.conf)
+  # 定位 checkpatch.pl:优先 $ZEPHYR_BASE,否则按 T2 布局取同级 ../zephyr
+  ZB="${ZEPHYR_BASE:-$ROOT/../zephyr}"
+  CHECKPATCH="$ZB/scripts/checkpatch.pl"
+  if [ -f "$CHECKPATCH" ]; then
+    echo "pre-commit: checkpatch 校验 ${#c_files[@]} 个 C 文件…"
+    # checkpatch 从当前工作目录读 .checkpatch.conf;git hook 已在仓库根运行
+    if ! perl "$CHECKPATCH" --no-tree -f "${c_files[@]}"; then
+      echo "pre-commit: checkpatch 发现问题,修正后重新 git add。" >&2
+      fail=1
+    fi
+  else
+    echo "pre-commit: [跳过] 未找到 checkpatch.pl($CHECKPATCH);设 ZEPHYR_BASE 或检查工作区布局。" >&2
+  fi
+
+  # 2c. cppcheck 静态分析 + MISRA C:2012(cppcheck 自带 misra addon)
+  #   - 轻量「单文件」扫描:pre-commit 只查暂存文件、不依赖构建;跨文件的深度分析留给 CI 的
+  #     项目级 `cppcheck --project=compile_commands.json`(见 doc/gate.md「未落地/规划」)。
+  #   - --error-exitcode=1:一旦报告问题即非零退出 → 阻断提交。
+  #   - --enable:仅 warning/performance/portability;不开 all,避免无 include 上下文时误报刷屏。
+  #   - --addon=misra:启用 MISRA C:2012 规则检查(依赖 python3;违规按「规则号」报告,
+  #     规则原文受版权保护、cppcheck 不内置,如需文本可另配 misra.json 指向本地规则文件)。
+  #   - --inline-suppr:允许代码内用 `// cppcheck-suppress <id>` 就地压制个别误报。
+  #   - 仓库根若存在 .cppcheck-suppressions,则作为全局抑制清单一并加载(集中管理误报/第三方代码)。
+  #   - 工具缺失 → 告警跳过、不挡提交(与 clang-format/checkpatch 同策略)。
+  if command -v cppcheck >/dev/null 2>&1; then
+    echo "pre-commit: cppcheck / MISRA 校验 ${#c_files[@]} 个 C 文件…"
+    cppcheck_args=(
+      --quiet                                    # 只输出问题,不打印进度
+      --error-exitcode=1                          # 有问题即退出码 1(门禁核心)
+      --enable=warning,performance,portability    # 启用的检查类别(不含噪声大的 information)
+      --addon=misra                               # MISRA C:2012 规则(addon)
+      --inline-suppr                              # 支持行内 cppcheck-suppress
+      --std=c11                                   # 语言标准
+      --language=c                                # 强制按 C 解析(避免 .h 被当 C++)
+      # 以下抑制项均源于「单文件、无构建上下文」:pre-commit 拿不到 Zephyr 头路径与宏,
+      # cppcheck 会把这类「配置不全」误报为 error 而错误地挡住正常提交。真正完整的分析由
+      # CI 的项目级 `cppcheck --project=compile_commands.json` 承担(那里不应加这些抑制)。
+      --suppress=misra-config                     # 宏/类型未知导致 MISRA 无法定型(非真实缺陷)
+      --suppress=unknownMacro                     # Zephyr 宏(如 GPIO_OUTPUT_ACTIVE)未解析
+      --suppress=missingInclude                   # 找不到工程头文件
+      --suppress=missingIncludeSystem             # 找不到系统头文件
+      --suppress=unmatchedSuppression             # 抑制项未命中时不报错
+      --suppress=checkersReport                   # 关闭「启用了哪些检查器」的信息汇总
+      --suppress=unusedFunction                   # 单文件看不到调用方,误判未使用
+    )
+    # 可选:仓库根的全局抑制清单
+    supp="$ROOT/.cppcheck-suppressions"
+    [ -f "$supp" ] && cppcheck_args+=("--suppressions-list=$supp")
+    if ! cppcheck "${cppcheck_args[@]}" "${c_files[@]}"; then
+      echo "pre-commit: cppcheck/MISRA 发现问题,修正或用 '// cppcheck-suppress <id>' 压制后重新 git add。" >&2
+      fail=1
+    fi
+  else
+    echo "pre-commit: [跳过] 未找到 cppcheck(安装:sudo apt install cppcheck)。" >&2
+  fi
+fi
+
+exit "$fail"

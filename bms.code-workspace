@@ -1,43 +1,73 @@
 {
-  // 多根工作区:双击本文件打开即可。路径相对于本文件所在目录(ZephyrBased_BMS/)。
-  // 本文件随 git 仓库分发,团队据此获得统一的 IDE 配置与目录视图。
+  // ============================================================================
+  // VS Code 多根工作区(bms.code-workspace)——ZephyrBased_BMS
+  // ----------------------------------------------------------------------------
+  // 用途:双击本文件(或 File > Open Workspace from File)即可一次性打开
+  //       app / manifest / zephyr / modules / bootloader 等多个仓库/目录,
+  //       并套用统一的项目级设置与推荐插件。
+  //
+  // 路径约定:所有 path 相对于本文件所在目录(bms-app/);其上一级(..)是
+  //           west 工作区根(含 .west/、build/ 等)。
+  //
+  // 分发:本文件随 app 仓库进 git,团队成员据此获得一致的 IDE 目录视图与配置;
+  //       个人偏好(主题、字体等)不要写在这里,放各自的用户设置。
+  // ============================================================================
+
+  // 工作区根目录列表:name 是侧边栏显示名,path 是相对路径。
+  // 其中 zephyr / modules / bootloader / build 由 west 生成或拉取,不纳入 app 版本管理。
   "folders": [
-    { "name": "BMS (app)", "path": "." },
-    { "name": "Manifest (west.yml)", "path": "../bms-manifest" },
-    { "name": "Zephyr", "path": "../zephyr" },
-    { "name": "Modules", "path": "../modules" },
-    { "name": "Bootloader (MCUboot)", "path": "../bootloader" }
+    { "name": "BMS (app)",            "path": "." },              // 应用仓库(本仓库根)
+    { "name": "Manifest (west.yml)",  "path": "../bms-manifest" },// 独立 manifest 仓库(锁定 zephyr 及模块版本)
+    { "name": "Zephyr",               "path": "../zephyr" },      // Zephyr RTOS 源码(west update 拉取)
+    { "name": "Modules",              "path": "../modules" },     // HAL/CMSIS 等模块(west update 拉取)
+    { "name": "Bootloader (MCUboot)", "path": "../bootloader" },  // MCUboot 引导器(west update 拉取)
+    { "name": "build-output",         "path": "../build" },       // west build 输出目录(产物,可随时删除重建)
+    { "name": "DevOps",               "path": "../DevOps" }        // 参考笔记仓库(Embedded_DevOps_Obsidian),仅编辑器显示,不进 west/构建
   ],
 
-  // 项目级统一设置(个人偏好如主题/字体不要写在这里,放各自的用户设置)
+  // 项目级统一设置(对本工作区所有成员生效;个人偏好如主题/字体放各自用户设置)
   "settings": {
+    // 保存文件时自动执行的代码操作
     "editor.codeActionsOnSave": {
-      // 保存时自动修复 markdownlint 可修规则(MD060 需扩展引擎支持,见文档)
+      // 保存 .md 时自动修复 markdownlint 可修规则(规则源见仓库根 .markdownlint.json;
+      // 其中 MD060 表格列样式需 markdownlint 扩展引擎支持)
       "source.fixAll.markdownlint": "always"
     },
+    // 保存时去除行尾多余空格(呼应 markdownlint MD009)
     "files.trimTrailingWhitespace": true,
+    // 保存时确保文件以一个换行结尾(POSIX 文本惯例)
     "files.insertFinalNewline": true
   },
 
-  // 团队推荐插件清单(打开工作区时 VS Code 提示安装)
+  // 团队推荐插件清单:打开本工作区时 VS Code 会提示安装这些扩展。
+  // 按用途分组说明(顺序与下方数组一致)。
   "extensions": {
     "recommendations": [
-      "ms-vscode.cpptools-extension-pack",
-      "ms-vscode.makefile-tools",
-      "marus25.cortex-debug",
-      "mcu-debug.debug-tracker-vscode",
-      "mcu-debug.peripheral-viewer",
-      "mcu-debug.memory-view",
-      "mcu-debug.rtos-views",
-      "ms-vscode.vscode-serial-monitor",
-      "trond-snekvik.gnu-mapfiles",
-      "cppchecksolutionsab.cppcheck-official",
-      "editorconfig.editorconfig",
-      "davidanson.vscode-markdownlint",
-      "ms-python.python",
-      "github.vscode-github-actions",
-      "ms-azuretools.vscode-containers",
-      "eamodio.gitlens"
+      // —— C/C++ 与构建 ——
+      "ms-vscode.cpptools-extension-pack", // C/C++ 语言支持(智能感知、调试等)
+      "ms-vscode.makefile-tools",          // Makefile 工程支持
+
+      // —— 嵌入式调试(cortex-debug 及 mcu-debug 系列查看器)——
+      "marus25.cortex-debug",              // ARM Cortex-M 在线调试(launch.json 依赖它)
+      "mcu-debug.debug-tracker-vscode",    // 调试会话状态跟踪(其余 mcu-debug 视图的基础)
+      "mcu-debug.peripheral-viewer",       // 外设寄存器视图(读取 launch.json 的 svdFile)
+      "mcu-debug.memory-view",             // 内存查看器
+      "mcu-debug.rtos-views",              // RTOS 线程/对象视图(查看 Zephyr 线程)
+      "ms-vscode.vscode-serial-monitor",   // 串口监视器(看 /dev/ttyACM0 的 UART 日志)
+
+      // —— 静态分析 / 映射文件 ——
+      "trond-snekvik.gnu-mapfiles",        // .map 链接映射文件高亮/导航
+      "cppchecksolutionsab.cppcheck-official", // cppcheck 静态分析
+
+      // —— 规范与文档 ——
+      "editorconfig.editorconfig",         // 遵循 .editorconfig 统一缩进/换行
+      "davidanson.vscode-markdownlint",    // Markdown 规范检查(配合上面的 fixAll)
+      "ms-python.python",                  // Python 支持(west/脚本/CI 工具链)
+
+      // —— 协作 / CI / 容器 ——
+      "github.vscode-github-actions",      // GitHub Actions 工作流编辑
+      "ms-azuretools.vscode-containers",   // 容器/Dev Container 支持
+      "eamodio.gitlens"                    // Git 增强(blame、历史等)
     ]
   }
 }

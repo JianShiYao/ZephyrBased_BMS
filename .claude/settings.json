@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "f=$(jq -r '.tool_input.file_path'); case \"$f\" in *.md) npx --yes markdownlint-cli2 \"$f\" 1>&2 || exit 2 ;; *.c|*.h) if command -v clang-format >/dev/null 2>&1; then clang-format --dry-run --Werror \"$f\" 1>&2 || exit 2; fi; ROOT=$(git -C \"$(dirname \"$f\")\" rev-parse --show-toplevel 2>/dev/null); CHECKPATCH=\"${ZEPHYR_BASE:-$ROOT/../zephyr}/scripts/checkpatch.pl\"; if [ -f \"$CHECKPATCH\" ]; then ( cd \"$ROOT\" && perl \"$CHECKPATCH\" --no-tree -f \"$f\" ) 1>&2 || exit 2; fi ;; esac"
+          }
+        ]
+      }
+    ]
+  }
+}
