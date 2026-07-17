@@ -84,8 +84,19 @@ jobs:
           echo "bms-app 现在指向:"
           git -C bms-app log --oneline -1
 
-      # ── ④ 编译(应用在 bms-app/app 子目录)。ZEPHYR_BASE 由 west 自动推出,
-      #    容器自带 SDK。-p always 全新构建,避免任何缓存干扰(MVP 先求正确)。
+      # ── ③.5 定位容器内的 Zephyr SDK 并导出 ZEPHYR_SDK_INSTALL_DIR。
+      #    容器自带 SDK,但其 CMake 包注册表随 HOME 变动,GitHub Actions 下可能定位不到
+      #    (报 find_package(Zephyr-sdk 1.0) 失败)。运行时发现 sdk 目录、写入 GITHUB_ENV,
+      #    不硬编码路径,兼容不同镜像版本的布局。
+      - name: 定位 Zephyr SDK
+        run: |
+          SDK=$(find /opt -maxdepth 3 -type d -name 'zephyr-sdk-*' 2>/dev/null | head -1)
+          [ -z "$SDK" ] && SDK=$(find / -maxdepth 5 -type d -name 'zephyr-sdk-*' 2>/dev/null | head -1)
+          echo "Zephyr SDK: ${SDK:-未找到}"
+          [ -n "$SDK" ] && echo "ZEPHYR_SDK_INSTALL_DIR=$SDK" >> "$GITHUB_ENV"
+
+      # ── ④ 编译(应用在 bms-app/app 子目录)。ZEPHYR_BASE 由 west 自动推出;
+      #    ZEPHYR_SDK_INSTALL_DIR 由上一步导出。-p always 全新构建(MVP 先求正确)。
       - name: west build (art_pi2)
         working-directory: ${{ env.WS }}
         run: west build -b art_pi2 bms-app/app -d build -p always
