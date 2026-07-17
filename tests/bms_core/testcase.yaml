@@ -1,0 +1,8 @@
+tests:
+  bms.core.unit:
+    tags:
+      - bms_core
+      - unit
+    # 单元测试优先在原生仿真跑,无需硬件;后续可加 art_pi2 做目标板级验证
+    platform_allow:
+      - native_sim
