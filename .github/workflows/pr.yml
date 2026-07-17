@@ -1,0 +1,99 @@
+# ============================================================================
+# MR 级流水线(门禁①)—— Pull Request 触发的快速验证
+# ----------------------------------------------------------------------------
+# 对应 DevOps《CI流水线设计》的「MR 级」:反馈优先、<30 分钟,内容为
+#   编译 +(后续)静态分析 + 单元测试。本文件是「流水线即代码」的落地,
+#   与应用代码同仓、变更走 MR 评审。
+#
+# 【当前范围 = MVP】只做「重建 Zephyr 工作区 + 编译」这一步,先把最难的
+#   环境重建跑通。绿灯后再增量加 compliance(check_compliance)与
+#   tests(twister)两个并行 job(见文末 TODO)。
+#
+# 【T3 拓扑要点】CI 是空机器,PR 只带来 bms-app 一个仓库,必须重建工作区:
+#   manifest 在独立仓库 bms-manifest;zephyr/模块按 manifest 锁定版本拉,
+#   而 bms-app 要覆盖成「本次 PR 的提交」而非 manifest 钉的版本。
+#
+# 【设为强制门禁】本 workflow 首次成功运行后,到仓库 Settings → Branches
+#   (或 Rulesets)把下面的 job 勾选为 "Required status checks",PR 未过
+#   不允许合入——这才真正"卡"住 merge(平台规则层)。
+# ============================================================================
+
+name: PR (MR 门禁)
+
+# 触发:面向 main 的 PR 的每次推送。develop 分支建立后在此追加。
+on:
+  pull_request:
+    branches:
+      - main
+
+# 同一 PR 有新推送时,取消仍在跑的旧运行,省 runner、加快反馈。
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+# 最小权限:本流水线只读代码即可。
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build (art_pi2)
+    runs-on: ubuntu-latest
+
+    # Zephyr 官方 CI 容器:预装 west、Zephyr SDK 与交叉工具链,省去自行安装。
+    # v0.29.2 打包的 Zephyr SDK 为 1.0.1,与本机(~/zephyr-sdk-1.0.1)一致 —— 工具链同版本,
+    # 构建行为可复现。升级前对照 https://github.com/zephyrproject-rtos/docker-image/releases,
+    # 确认新 tag 的 SDK 仍支持 STM32H7RS。
+    container: ghcr.io/zephyrproject-rtos/ci:v0.29.2
+
+    # 工作区目录名(west init 在此建立整个 west 工作区)。
+    env:
+      WS: zephyr-workspace
+      # bms-manifest(独立 manifest 仓库,T3)的 URL。
+      MANIFEST_URL: https://github.com/JianShiYao/bms-manifest.git
+
+    steps:
+      # ── 前置:容器内以 root 运行,目录属主与 git 不一致会触发 "dubious
+      #    ownership" 拒绝操作。放行所有目录(CI 一次性环境,安全可接受)。
+      - name: 允许 git 操作容器内目录
+        run: git config --global --add safe.directory '*'
+
+      # ── ① 初始化工作区,指向独立 manifest 仓库(T3 关键:根是 bms-manifest)。
+      #    --mr main:用 manifest 仓库的 main 分支;$WS 为工作区目录。
+      #    不用 `west init -l`(那是本地已有 manifest 目录的写法,CI 空机无此目录)。
+      - name: west init(拉取 manifest)
+        run: west init -m "$MANIFEST_URL" --mr main "$WS"
+
+      # ── ② 按 manifest 锁定版本拉取所有 project:
+      #    zephyr → $WS/zephyr,模块 → $WS/modules/*,bms-app → $WS/bms-app。
+      #    此刻 bms-app 还是 manifest 钉的 revision(main),下一步再覆盖成 PR。
+      - name: west update(拉取 zephyr 与模块)
+        working-directory: ${{ env.WS }}
+        run: west update --narrow -o=--depth=1
+
+      # ── ③ 【T3 专属】把 bms-app 覆盖成本次 PR 的提交。
+      #    用 GitHub 为每个 PR 提供的 refs/pull/<N>/head(fork/同仓 PR 皆有),
+      #    比直接 fetch SHA 更稳。取成本地分支 pr 后 checkout。
+      - name: 覆盖 bms-app 到 PR 提交
+        working-directory: ${{ env.WS }}
+        run: |
+          git -C bms-app fetch origin \
+            "+refs/pull/${{ github.event.pull_request.number }}/head:pr"
+          git -C bms-app checkout pr
+          echo "bms-app 现在指向:"
+          git -C bms-app log --oneline -1
+
+      # ── ④ 编译(应用在 bms-app/app 子目录)。ZEPHYR_BASE 由 west 自动推出,
+      #    容器自带 SDK。-p always 全新构建,避免任何缓存干扰(MVP 先求正确)。
+      - name: west build (art_pi2)
+        working-directory: ${{ env.WS }}
+        run: west build -b art_pi2 bms-app/app -d build -p always
+
+# ============================================================================
+# TODO(下一步增量,均设为 required status checks):
+#   - job: compliance —— check_compliance.py -m Checkpatch -m ClangFormat
+#       -c <base>..HEAD(需先在 bms-app 里 fetch base 分支供 diff 比对)
+#   - job: tests —— west twister -T bms-app/tests -p native_sim
+#   - 加速:ccache + west/pip 依赖缓存(缓存须可丢弃重建,不牺牲可复现)
+#   - 多板矩阵、合入级/夜间级/发布级流水线
+# ============================================================================
