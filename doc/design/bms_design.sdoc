@@ -1,0 +1,13 @@
+[DOCUMENT]
+TITLE: BMS 设计
+PREFIX: ENV-DSN-
+
+[REQUIREMENT]
+UID: ENV-SWE-SAFETY-001
+TITLE: 过压监测与断充设计
+STATEMENT: >>>
+safety_monitor 模块周期采样各电芯电压,超过阈值时经 GPIO 驱动充电 MOSFET 断开充电回路。
+<<<
+RELATIONS:
+- TYPE: Parent
+  VALUE: ENV-SWE-SAFETY-001

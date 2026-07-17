@@ -1,0 +1,20 @@
+[DOCUMENT]
+TITLE: BMS 软件安全需求
+PREFIX: ENV-SWE-SAFETY-
+
+[GRAMMAR]
+IMPORT_FROM_FILE: @req-grammar
+
+[REQUIREMENT]
+UID: ENV-SWE-SAFETY-001
+TITLE: 过压断充保护
+STATEMENT: >>>
+当任一电芯电压超过过压阈值时,系统应在 10 ms 内断开充电回路。
+<<<
+RATIONALE: >>>
+防止电芯过充导致热失控;源自电池安全分析(FMEA)。
+<<<
+ASIL: C
+VERIFICATION_METHOD: Test
+STATUS: Draft
+

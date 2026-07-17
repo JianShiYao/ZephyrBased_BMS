@@ -1,0 +1,28 @@
+[GRAMMAR]
+ELEMENTS:
+- TAG: REQUIREMENT
+  FIELDS:
+  - TITLE: UID
+    TYPE: String
+    REQUIRED: True
+  - TITLE: TITLE
+    TYPE: String
+    REQUIRED: True
+  - TITLE: STATEMENT
+    TYPE: String
+    REQUIRED: True
+  - TITLE: RATIONALE
+    TYPE: String
+    REQUIRED: False
+  - TITLE: ASIL
+    TYPE: SingleChoice(QM, A, B, C, D)
+    REQUIRED: False
+  - TITLE: VERIFICATION_METHOD
+    TYPE: SingleChoice(Test, Analysis, Review, Inspection)
+    REQUIRED: False
+  - TITLE: STATUS
+    TYPE: SingleChoice(Draft, Reviewed, Approved)
+    REQUIRED: False
+  RELATIONS:
+  - TYPE: Parent
+  - TYPE: File
