@@ -72,12 +72,13 @@ jobs:
         run: west update --narrow -o=--depth=1
 
       # ── ③ 【T3 专属】把 bms-app 覆盖成本次 PR 的提交。
-      #    用 GitHub 为每个 PR 提供的 refs/pull/<N>/head(fork/同仓 PR 皆有),
-      #    比直接 fetch SHA 更稳。取成本地分支 pr 后 checkout。
+      #    用 GitHub 为每个 PR 提供的 refs/pull/<N>/head(在 base 仓库上,fork/同仓皆可)。
+      #    注意:west 克隆时远程名取自 manifest 的 remote 名(此处 BMS-Repo),并非 origin,
+      #    故不按远程名、而是直接用 base 仓库 URL(github.repository)fetch,最稳。
       - name: 覆盖 bms-app 到 PR 提交
         working-directory: ${{ env.WS }}
         run: |
-          git -C bms-app fetch origin \
+          git -C bms-app fetch "https://github.com/${{ github.repository }}.git" \
             "+refs/pull/${{ github.event.pull_request.number }}/head:pr"
           git -C bms-app checkout pr
           echo "bms-app 现在指向:"
