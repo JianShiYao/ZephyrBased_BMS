@@ -1,0 +1,19 @@
+# 声明 bms-app 为 Zephyr module。
+# T3 拓扑下,本仓库在 bms-manifest/west.yml 中作为 project 登记后,west 即扫描到此文件,
+# 把仓库根的 boards/ 与 dts/bindings/ 纳入构建系统的搜索根 —— 使自定义板/绑定对任意应用构建可见。
+# 说明:
+#   - 不含 build.cmake / build.kconfig:本仓库根不是可构建的库(应用在 app/ 子目录,单独构建),
+#     仅作为「资产提供型」模块暴露 board/dts 搜索根;
+#   - 当前尚无自定义板/绑定(用官方 art_pi2),boards/ 与 dts/bindings/ 为占位,有内容即自动生效。
+name: bms-app
+build:
+  settings:
+    board_root: .
+    dts_root: .
+
+# Python 工具依赖:由 west packages pip 聚合安装(路径相对本仓库根)。
+# 安装:west packages pip --install
+package-managers:
+  pip:
+    requirement-files:
+      - scripts/requirements.txt
