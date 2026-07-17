@@ -1,0 +1,17 @@
+# 合规检查产物(check_compliance.py -o 的 JUnit 输出,本地/CI 生成,勿提交)
+compliance.xml
+
+# 构建产物(若在 app 仓库内构建时产生)
+build/
+
+# Twister 测试输出(west twister 默认产物目录)
+twister-out/
+twister-out.*/
+
+# StrictDoc 导出产物
+output/
+
+# Python 字节码缓存(strictdoc_config.py 被读取时生成)
+__pycache__/
+*.pyc
+

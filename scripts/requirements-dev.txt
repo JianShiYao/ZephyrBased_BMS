@@ -1,0 +1,6 @@
+#
+#这是"重新生成锁文件"用的工具依赖,不属于运行依赖,不经 west packages pip 安装,
+#谁要重编锁就手动 pip install -r scripts/requirements-dev.txt。
+#
+
+pip-tools==7.5.3

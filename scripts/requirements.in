@@ -1,0 +1,11 @@
+# 版本锁定(功能安全可复现要求,见 脚手架搭建规范.md §3.3):升级需走评审。
+
+# 需求管理:StrictDoc(需求→设计→码→测试 追溯主干)
+strictdoc==0.27.0
+
+# 合规检查:check_compliance.py(checkpatch/clang-format 门禁)必需依赖。
+# 版本对齐 Zephyr 官方 CI 锁定值(zephyr/scripts/requirements-actions.txt),满足约束 >=4.0.1。
+junitparser==4.0.2
+# libmagic 绑定:非 Windows 用 python-magic,Windows 用自带二进制的 python-magic-bin
+python-magic==0.4.27; sys_platform != "win32"
+python-magic-bin==0.4.14; sys_platform == "win32"

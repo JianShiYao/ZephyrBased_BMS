@@ -1,0 +1,91 @@
+{
+  // 路径约定:本文件在 bms-app/.vscode/ 下,${workspaceFolder}=bms-app,
+  // west 工作区根是它的上一级(${workspaceFolder}/..)。
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "West Build (art_pi2)",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/west",
+      "args": ["build", "-b", "art_pi2", "${workspaceFolder}/app", "-d", "${workspaceFolder}/../build"],
+      "options": { "cwd": "${workspaceFolder}/.." },
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "West Build (pristine)",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/west",
+      "args": ["build", "-b", "art_pi2", "${workspaceFolder}/app", "-d", "${workspaceFolder}/../build", "-p", "always"],
+      "options": { "cwd": "${workspaceFolder}/.." },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      // 依赖 udev 规则让 pyocd 免 sudo 访问 ST-Link(见 README/说明)。
+      // 若未配 udev,把 command 换成 sudo、args 前面加 env HOME/PATH(见说明)。
+      "label": "West Flash (pyocd)",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/west",
+      "args": ["flash", "-r", "pyocd", "-d", "${workspaceFolder}/../build"],
+      "options": { "cwd": "${workspaceFolder}/.." },
+      "dependsOn": "West Build (art_pi2)",
+      "problemMatcher": []
+    },
+    {
+      // ST 官方 STM32CubeProgrammer 烧录(board.cmake 默认 runner,不带 -r)。
+      // 经 options.env 把 CubeProgrammer 的 bin 前插进 PATH,确保 west 能定位 STM32_Programmer_CLI,
+      // 不依赖 shell 是否 source 过 ~/.bashrc。
+      "label": "West Flash (CubeProgrammer)",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/west",
+      "args": ["flash", "-d", "${workspaceFolder}/../build"],
+      "options": {
+        "cwd": "${workspaceFolder}/..",
+        "env": { "PATH": "${env:HOME}/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin:${env:PATH}" }
+      },
+      "dependsOn": "West Build (art_pi2)",
+      "problemMatcher": []
+    },
+    {
+      // 阶段1 质量控制:对本分支相对 main 的改动跑 Zephyr 合规检查。
+      // - 脚本来自 zephyr(check_compliance.py 会据自身路径自动推出 ZEPHYR_BASE),
+      //   规则来自 app 根目录的 .clang-format / .checkpatch.conf;
+      // - cwd 设为 app 仓库根,使 GIT_TOP=本仓库、checkpatch 能读到 .checkpatch.conf;
+      // - 用 .venv 的 python(已装 west 及依赖);
+      // - 当前只跑 Checkpatch + ClangFormat(即已配置的两项),后续阶段再逐步放开;
+      // - 检查范围 main..HEAD 与 CI(PR vs main)一致;若在 main 上直接改,
+      //   可临时把 main..HEAD 换成 HEAD~1..HEAD 检查最近一次提交。
+      "label": "Compliance Check (app)",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/python",
+      "args": [
+        "${workspaceFolder}/../zephyr/scripts/ci/check_compliance.py",
+        "-m", "Checkpatch",
+        "-m", "ClangFormat",
+        "-c", "main..HEAD"
+      ],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      // 需求管理:生成 StrictDoc HTML + 追溯矩阵到 output/(已 gitignore)。
+      // 配置读 strictdoc_config.py;cwd=app 仓库根。strictdoc 装在 .venv(经 west packages pip)。
+      "label": "StrictDoc Export",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/strictdoc",
+      "args": ["export", ".", "--output-dir", "output"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      // 需求管理:本地 Web 编辑/浏览(浏览器打开提示的地址,Ctrl+C 停)。
+      "label": "StrictDoc Server",
+      "type": "shell",
+      "command": "${workspaceFolder}/../.venv/bin/strictdoc",
+      "args": ["server", "."],
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

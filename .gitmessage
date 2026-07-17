@@ -1,0 +1,17 @@
+# <type>(<scope>): <subject>        # ≤50字符, 祈使句, 结尾不加句号
+#
+# ── type(必填)────────────────────────────────────────────────
+#   feat     新功能 (MINOR)        fix      缺陷修复 (PATCH)
+#   perf     性能 (PATCH)          docs     仅文档
+#   test     测试                  build    构建/依赖(CMake/west.yml/SDK)
+#   ci       CI 配置               refactor 重构(不改行为)
+#   style    格式                  chore    杂项
+# ── scope(建议)对应 src/ 模块 ─────────────────────────────────
+#   bms_core | can_if | safety_monitor | board | manifest | ...
+#
+# ── body(可选)每行 ≤72 字符, 说明「为什么/做了什么」──────────────
+
+# ── footer ───────────────────────────────────────────────────
+# Refs: ENV-REQ-XXX-000            # west.yml/板级等关键设计输入变更必填需求ID
+# Closes #123                      # 关联 issue
+# BREAKING CHANGE: <说明>           # 不兼容变更 → MAJOR
